@@ -153,20 +153,18 @@ for (const tokenRecord of tokens) {
     let titulo, cuerpo;
     if (minutosAntes === 0) {
         titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
-        cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+        cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre} | ${orden.cliente_nombre || 'Sin cliente'}`;
     } else {
         titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
-        cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+        cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre} | Cliente: ${orden.cliente_nombre || 'No especificado'}`;
     }
     
-    // ✅ FORMATO CORRECTO - Sin campos no soportados
     const message = {
         token: tokenRecord.token,
         notification: {
             title: titulo,
             body: cuerpo
         },
-        // ✅ CONFIGURACIÓN PARA ANDROID (sin vibrate aquí)
         android: {
             priority: 'high',
             notification: {
@@ -179,7 +177,6 @@ for (const tokenRecord of tokens) {
                 clickAction: 'OPEN_ACTIVITY'
             }
         },
-        // ✅ CONFIGURACIÓN PARA iOS
         apns: {
             payload: {
                 aps: {
@@ -192,11 +189,8 @@ for (const tokenRecord of tokens) {
                 }
             }
         },
-        // ✅ CONFIGURACIÓN PARA WEB (aquí sí va vibrate)
         webpush: {
-            headers: { 
-                Urgency: 'high'
-            },
+            headers: { Urgency: 'high' },
             notification: {
                 title: titulo,
                 body: cuerpo,
@@ -206,25 +200,22 @@ for (const tokenRecord of tokens) {
                 requireInteraction: true
             }
         },
-        // ✅ DATOS ADICIONALES
         data: {
-        ordenId: orden.id.toString(),
-        url: `/ordenes/${orden.id}`,
-        click_action: `/ordenes/${orden.id}`,  // ← Ya lo tienes
-        title: titulo,
-        body: cuerpo,
-        tag: 'orden_notification'  // ← Agrega esto para agrupar notificaciones
-    }
+            ordenId: orden.id.toString(),
+            url: `/ordenes/${orden.id}`,
+            click_action: `/ordenes/${orden.id}`,
+            title: titulo,
+            body: cuerpo
+        }
     };
     
-    console.log(`📨 Enviando push a token: ${tokenRecord.token.substring(0, 20)}...`);
+    console.log(`📨 Enviando push: ${titulo}`);
     
     try {
         const response = await admin.messaging().send(message);
-        console.log(`✅ Notificación push enviada: ${response.messageId}`);
+        console.log(`✅ Notificación push enviada`);
     } catch (sendError) {
         console.error(`❌ Error enviando push:`, sendError.message);
-        // Si el token es inválido, desactivarlo
         if (sendError.code === 'messaging/registration-token-not-registered') {
             await tokenRecord.update({ activo: false });
             console.log(`⚠️ Token inválido desactivado`);
