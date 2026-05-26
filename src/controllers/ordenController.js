@@ -37,25 +37,36 @@ const crearOrden = async (req, res) => {
     const transaction = await sequelize.transaction();
     
     try {
+        // ✅ VERIFICAR que el usuario está autenticado
+        if (!req.usuario || !req.usuario.id) {
+            return res.status(401).json({ error: 'Usuario no autenticado' });
+        }
+        
         // Procesar imagen de referencia si existe
         let imagen_referencia_url = null;
         if (req.file) {
             imagen_referencia_url = await fileService.saveFile(req.file, 'ordenes');
         }
         
+        // ✅ Asegurar que fecha_limite y hora_limite tengan valores válidos
+        const fecha_limite = req.body.fecha_limite && req.body.fecha_limite !== '' ? req.body.fecha_limite : null;
+        const hora_limite = req.body.hora_limite && req.body.hora_limite !== '' ? req.body.hora_limite : null;
+        
         const ordenData = {
             doctor_id: req.body.doctor_id,
             servicio_id: req.body.servicio_id,
             total: req.body.total,
             prioridad: req.body.prioridad || 'normal',
-            fecha_limite: req.body.fecha_limite || null,
-            hora_limite: req.body.hora_limite || null,
+            fecha_limite: fecha_limite,
+            hora_limite: hora_limite,
             cliente_nombre: req.body.cliente_nombre || null,
             detalle_cliente: req.body.detalle_cliente || null,
             usuario_creo_id: req.usuario.id,
             id_externo: `ORD-${Date.now()}`,
             imagen_referencia_url: imagen_referencia_url
         };
+
+        console.log('📝 Creando orden con datos:', ordenData);
 
         const orden = await Orden.create(ordenData, { transaction });
 
@@ -71,24 +82,12 @@ const crearOrden = async (req, res) => {
 
         await transaction.commit();
 
-        // ✅ IMPORTANTE: Recargar la orden con las relaciones (doctor y servicio)
+        // Recargar la orden con relaciones
         const ordenCompleta = await Orden.findByPk(orden.id, {
             include: [
-                { 
-                    model: Doctor, 
-                    as: 'doctor',
-                    attributes: ['id', 'nombre', 'telefono_whatsapp', 'logo_url']
-                },
-                { 
-                    model: Servicio, 
-                    as: 'servicio',
-                    attributes: ['id', 'nombre']
-                },
-                { 
-                    model: Pago, 
-                    as: 'pagos',
-                    required: false
-                }
+                { model: Doctor, as: 'doctor', attributes: ['id', 'nombre', 'telefono_whatsapp', 'logo_url'] },
+                { model: Servicio, as: 'servicio', attributes: ['id', 'nombre'] },
+                { model: Pago, as: 'pagos', required: false }
             ]
         });
 
@@ -96,25 +95,35 @@ const crearOrden = async (req, res) => {
 
         res.status(201).json({
             mensaje: 'Orden creada correctamente',
-            orden: ordenCompleta  // ✅ Devuelve la orden con relaciones
+            orden: ordenCompleta
         });
 
     } catch (error) {
         await transaction.rollback();
         logger.error('Error creando orden:', error);
-        res.status(500).json({ error: 'Error al crear orden' });
+        res.status(500).json({ error: 'Error al crear orden', details: error.message });
     }
 };
 
 // ✅ ACTUALIZAR ORDEN - CORREGIDO (devuelve orden con relaciones)
+// ✅ ACTUALIZAR ORDEN - CORREGIDO (devuelve orden con relaciones)
 const actualizarOrden = async (req, res) => {
     try {
+        // ✅ VERIFICAR que el usuario está autenticado
+        if (!req.usuario || !req.usuario.id) {
+            return res.status(401).json({ error: 'Usuario no autenticado' });
+        }
+        
         const { id } = req.params;
         const orden = await Orden.findByPk(id);
 
         if (!orden) {
             return res.status(404).json({ error: 'Orden no encontrada' });
         }
+
+        // ✅ Asegurar que fecha_limite y hora_limite tengan valores válidos
+        const fecha_limite = req.body.fecha_limite && req.body.fecha_limite !== '' ? req.body.fecha_limite : null;
+        const hora_limite = req.body.hora_limite && req.body.hora_limite !== '' ? req.body.hora_limite : null;
 
         // Procesar imagen de referencia si se subió una nueva
         let imagen_referencia_url = orden.imagen_referencia_url;
@@ -131,12 +140,14 @@ const actualizarOrden = async (req, res) => {
             servicio_id: req.body.servicio_id,
             total: req.body.total,
             prioridad: req.body.prioridad,
-            fecha_limite: req.body.fecha_limite || null,
-            hora_limite: req.body.hora_limite || null,
+            fecha_limite: fecha_limite,
+            hora_limite: hora_limite,
             cliente_nombre: req.body.cliente_nombre,
             detalle_cliente: req.body.detalle_cliente || null,
             imagen_referencia_url: imagen_referencia_url
         };
+
+        console.log('📝 Actualizando orden con datos:', datosActualizados);
 
         await orden.update(datosActualizados);
 
@@ -165,12 +176,12 @@ const actualizarOrden = async (req, res) => {
 
         res.json({
             mensaje: 'Orden actualizada correctamente',
-            orden: ordenActualizada  // ✅ Devuelve la orden actualizada con relaciones
+            orden: ordenActualizada
         });
 
     } catch (error) {
         logger.error('Error actualizando orden:', error);
-        res.status(500).json({ error: 'Error al actualizar orden' });
+        res.status(500).json({ error: 'Error al actualizar orden', details: error.message });
     }
 };
 
