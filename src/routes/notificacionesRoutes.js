@@ -1,18 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const { autenticar } = require('../middleware/auth');
-const pushNotificationService = require('../services/pushNotificationService');
-const { Orden } = require('../models');  // ✅ AGREGAR ESTA LÍNEA
+const { Orden, Doctor, Servicio, TokenFCM } = require('../models');
+const admin = require('../config/firebase-admin');
+
 // Registrar token FCM
 router.post('/registrar-token', autenticar, async (req, res) => {
     try {
         const { token, dispositivo, plataforma } = req.body;
-        await pushNotificationService.registrarToken(
-            req.usuario.id,
-            token,
-            dispositivo || req.headers['user-agent'],
-            plataforma || 'web'
-        );
+        
+        // Buscar o crear token en la tabla TokenFCM
+        let tokenRecord = await TokenFCM.findOne({ where: { token } });
+        
+        if (tokenRecord) {
+            await tokenRecord.update({
+                usuario_id: req.usuario.id,
+                dispositivo: dispositivo || req.headers['user-agent'],
+                plataforma: plataforma || 'web',
+                ultimo_uso: new Date(),
+                activo: true
+            });
+        } else {
+            await TokenFCM.create({
+                token,
+                usuario_id: req.usuario.id,
+                dispositivo: dispositivo || req.headers['user-agent'],
+                plataforma: plataforma || 'web',
+                ultimo_uso: new Date(),
+                activo: true
+            });
+        }
+        
+        console.log(`✅ Token FCM registrado para usuario ${req.usuario.id}`);
         res.json({ success: true, message: 'Token registrado correctamente' });
     } catch (error) {
         console.error('Error registrando token:', error);
@@ -24,7 +43,8 @@ router.post('/registrar-token', autenticar, async (req, res) => {
 router.delete('/eliminar-token', autenticar, async (req, res) => {
     try {
         const { token } = req.body;
-        await pushNotificationService.eliminarToken(token);
+        await TokenFCM.destroy({ where: { token } });
+        console.log(`🗑️ Token FCM eliminado`);
         res.json({ success: true, message: 'Token eliminado' });
     } catch (error) {
         console.error('Error eliminando token:', error);
@@ -35,12 +55,27 @@ router.delete('/eliminar-token', autenticar, async (req, res) => {
 // Enviar prueba de notificación push
 router.post('/test', autenticar, async (req, res) => {
     try {
-        await pushNotificationService.enviarNotificacionAUsuario(
-            req.usuario.id,
-            '🔔 Notificación de prueba',
-            'Esta es una notificación push desde el servidor',
-            { url: '/dashboard' }
-        );
+        const tokens = await TokenFCM.findAll({
+            where: { usuario_id: req.usuario.id, activo: true }
+        });
+        
+        if (tokens.length === 0) {
+            return res.json({ success: false, message: 'No hay tokens FCM registrados' });
+        }
+        
+        for (const tokenRecord of tokens) {
+            const message = {
+                token: tokenRecord.token,
+                notification: {
+                    title: '🔔 Notificación de prueba',
+                    body: 'Esta es una notificación push desde el servidor',
+                    icon: '/favicon.ico'
+                },
+                data: { url: '/dashboard' }
+            };
+            await admin.messaging().send(message);
+        }
+        
         res.json({ success: true, message: 'Notificación de prueba enviada' });
     } catch (error) {
         console.error('Error enviando notificación de prueba:', error);
@@ -48,28 +83,89 @@ router.post('/test', autenticar, async (req, res) => {
     }
 });
 
-
 // Programar notificación push para una orden
 router.post('/programar', autenticar, async (req, res) => {
     try {
         const { ordenId, minutosAntes } = req.body;
-        const orden = await Orden.findByPk(ordenId);
+        
+        console.log(`📨 [DEBUG] Solicitud programar push: ordenId=${ordenId}, minutosAntes=${minutosAntes}`);
+        
+        // Buscar la orden con sus relaciones
+        const orden = await Orden.findByPk(ordenId, {
+            include: [
+                { model: Doctor, as: 'doctor', attributes: ['nombre'] },
+                { model: Servicio, as: 'servicio', attributes: ['nombre'] }
+            ]
+        });
         
         if (!orden) {
+            console.log(`❌ Orden no encontrada: ${ordenId}`);
             return res.status(404).json({ error: 'Orden no encontrada' });
         }
         
-        await pushNotificationService.programarNotificacionPush(orden, minutosAntes);
-        res.json({ success: true, message: `Notificación programada para ${minutosAntes} min antes` });
+        console.log(`📦 Orden encontrada: ${orden.id_externo}, fecha_limite: ${orden.fecha_limite}, hora_limite: ${orden.hora_limite}`);
+        
+        // Calcular la fecha de disparo
+        const fechaHora = new Date(`${orden.fecha_limite}T${orden.hora_limite || '08:00'}`);
+        const fechaDisparo = new Date(fechaHora.getTime() - minutosAntes * 60000);
+        const ahora = new Date();
+        const delay = fechaDisparo.getTime() - ahora.getTime();
+        
+        console.log(`⏰ Calculando delay: ahora=${ahora.toISOString()}, fechaDisparo=${fechaDisparo.toISOString()}, delay=${delay}ms (${Math.round(delay / 60000)} min)`);
+        
+        if (delay > 0) {
+            // Programar el envío
+            setTimeout(async () => {
+                console.log(`🔔 [TIMER] Enviando notificación push para orden ${orden.id_externo} (${minutosAntes} min antes)`);
+                
+                try {
+                    // Obtener tokens del usuario que creó la orden
+                    const tokens = await TokenFCM.findAll({
+                        where: { usuario_id: orden.usuario_creo_id, activo: true }
+                    });
+                    
+                    if (tokens.length === 0) {
+                        console.log(`⚠️ No hay tokens FCM para usuario ${orden.usuario_creo_id}`);
+                        return;
+                    }
+                    
+                    // Enviar notificación a cada token
+                    for (const tokenRecord of tokens) {
+                        let titulo, cuerpo;
+                        if (minutosAntes === 0) {
+                            titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
+                            cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+                        } else {
+                            titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
+                            cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+                        }
+                        
+                        const message = {
+                            token: tokenRecord.token,
+                            notification: { title: titulo, body: cuerpo, icon: '/favicon.ico' },
+                            data: { ordenId: orden.id.toString(), url: `/ordenes/${orden.id}` },
+                            webpush: { headers: { Urgency: 'high' }, notification: { vibrate: [200, 100, 200] } }
+                        };
+                        
+                        await admin.messaging().send(message);
+                        console.log(`📨 Notificación push enviada a token: ${tokenRecord.token.substring(0, 20)}...`);
+                    }
+                } catch (error) {
+                    console.error(`❌ Error enviando notificación push:`, error);
+                }
+            }, delay);
+            
+            console.log(`⏰ Notificación push PROGRAMADA para orden ${orden.id_externo} en ${Math.round(delay / 60000)} min`);
+            
+            res.json({ success: true, message: `Notificación programada para ${minutosAntes} min antes`, delay: Math.round(delay / 60000) });
+        } else {
+            console.log(`⚠️ No se programó notificación: delay no positivo (${delay}ms)`);
+            res.json({ success: false, message: 'Fecha ya pasada, no se programó notificación' });
+        }
     } catch (error) {
-        console.error('Error programando notificación:', error);
-        res.status(500).json({ error: 'Error programando notificación' });
+        console.error('❌ Error programando notificación:', error);
+        res.status(500).json({ error: 'Error programando notificación', details: error.message });
     }
 });
-
-
-
-
-
 
 module.exports = router;
