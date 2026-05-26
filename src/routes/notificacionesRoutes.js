@@ -210,6 +210,7 @@ for (const tokenRecord of tokens) {
         data: {
             ordenId: orden.id.toString(),
             url: `/ordenes/${orden.id}`,
+            click_action: `/ordenes/${orden.id}`,  // ← Importante para Android
             title: titulo,
             body: cuerpo
         }
