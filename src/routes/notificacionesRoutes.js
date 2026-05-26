@@ -208,12 +208,13 @@ for (const tokenRecord of tokens) {
         },
         // ✅ DATOS ADICIONALES
         data: {
-            ordenId: orden.id.toString(),
-            url: `/ordenes/${orden.id}`,
-            click_action: `/ordenes/${orden.id}`,  // ← Importante para Android
-            title: titulo,
-            body: cuerpo
-        }
+        ordenId: orden.id.toString(),
+        url: `/ordenes/${orden.id}`,
+        click_action: `/ordenes/${orden.id}`,  // ← Ya lo tienes
+        title: titulo,
+        body: cuerpo,
+        tag: 'orden_notification'  // ← Agrega esto para agrupar notificaciones
+    }
     };
     
     console.log(`📨 Enviando push a token: ${tokenRecord.token.substring(0, 20)}...`);
