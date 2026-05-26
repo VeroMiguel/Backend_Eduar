@@ -18,9 +18,7 @@ const servicioRoutes = require('./routes/servicioRoutes');
 const pagoRoutes = require('./routes/pagoRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
 const app = express();
-// Después de otras rutas
-const notificacionesRoutes = require('./routes/notificacionesRoutes');
-app.use('/api/notificaciones', notificacionesRoutes);
+
 // Configuración de trust proxy para Railway
 app.set('trust proxy', 1);
 
@@ -34,7 +32,7 @@ const corsOptions = {
         const allowedOrigins = [
             'http://localhost:4200',
             'http://127.0.0.1:4200',
-            'https://proyectoedufrontend-production.up.railway.app',
+            'https://frontendeduar-production.up.railway.app',
             config.frontendUrl
         ];
         
@@ -53,12 +51,13 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
+
 // APLICAR CORS PRIMERO
 app.use(cors(corsOptions));
 
 // Middleware para asegurar headers CORS (respaldo)
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:4200');
+    res.header('Access-Control-Allow-Origin', req.headers.origin || 'https://frontendeduar-production.up.railway.app');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -89,7 +88,6 @@ app.use('/api/', limiter);
 
 // Otros middlewares
 app.use(compression());
-// Aumentar el límite para requests grandes (para imágenes grandes)
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
@@ -97,17 +95,11 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 // Archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Archivos estáticos
-const uploadPath = path.join(__dirname, '../uploads');
-console.log('📁 Sirviendo archivos estáticos desde:', uploadPath);
-app.use('/uploads', express.static(uploadPath));
-
-
 // ============================================
 // 3. RUTAS PÚBLICAS
 // ============================================
 
-// Ruta de health check (sin autenticación)
+// Ruta de health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
@@ -116,7 +108,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Ruta de prueba sin autenticación
 app.get('/api/ping', (req, res) => {
     res.json({ 
         message: 'pong',
@@ -125,52 +116,15 @@ app.get('/api/ping', (req, res) => {
     });
 });
 
-
-// 🔥 RUTA DE DEBUG - MUCHO ANTES del manejador 404
-app.get('/debug/directories', async (req, res) => {
-    const fs = require('fs-extra');
-    const path = require('path');
-    const uploadsPath = path.join(__dirname, '../uploads');
-    
-    const listarDirectorio = async (dir) => {
-        if (!await fs.pathExists(dir)) return null;
-        const items = await fs.readdir(dir);
-        const resultado = [];
-        
-        for (const item of items) {
-            const itemPath = path.join(dir, item);
-            const stat = await fs.stat(itemPath);
-            resultado.push({
-                nombre: item,
-                esDirectorio: stat.isDirectory(),
-                ruta: itemPath,
-                tamaño: stat.isFile() ? stat.size : null
-            });
-        }
-        return resultado;
-    };
-    
-    const exists = await fs.pathExists(uploadsPath);
-    const contenido = exists ? await listarDirectorio(uploadsPath) : [];
-    
-    res.json({
-        uploadsPath,
-        exists,
-        contenido,
-        mensaje: 'Si ves doctores/, servicios/, ordenes/ y temp/, está funcionando correctamente'
-    });
-});
-
-
-
-
 // Rutas públicas de autenticación
 app.use('/api/auth', authRoutes);
 
 // ============================================
 // 4. RUTAS PROTEGIDAS
 // ============================================
-
+// Después de otras rutas
+const notificacionesRoutes = require('./routes/notificacionesRoutes');
+app.use('/api/notificaciones',autenticar, notificacionesRoutes);
 app.use('/api/ordenes', autenticar, ordenRoutes);
 app.use('/api/doctores', autenticar, doctorRoutes);
 app.use('/api/servicios', autenticar, servicioRoutes);
