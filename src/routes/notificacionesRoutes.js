@@ -148,6 +148,7 @@ router.post('/programar', autenticar, async (req, res) => {
                     
                     // Enviar notificación a cada token
              // Enviar notificación a cada token
+// Enviar notificación a cada token
 for (const tokenRecord of tokens) {
     let titulo, cuerpo;
     if (minutosAntes === 0) {
@@ -158,14 +159,14 @@ for (const tokenRecord of tokens) {
         cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
     }
     
-    // ✅ FORMATO COMPLETO para Android, iOS y Web
+    // ✅ FORMATO CORRECTO - Sin campos no soportados
     const message = {
         token: tokenRecord.token,
         notification: {
             title: titulo,
             body: cuerpo
         },
-        // ✅ CONFIGURACIÓN ESPECÍFICA PARA ANDROID
+        // ✅ CONFIGURACIÓN PARA ANDROID (sin vibrate aquí)
         android: {
             priority: 'high',
             notification: {
@@ -174,13 +175,8 @@ for (const tokenRecord of tokens) {
                 icon: 'ic_notification',
                 color: '#6366f1',
                 sound: 'default',
-                vibrate: [200, 100, 200],
                 channelId: 'ordenes_channel',
-                clickAction: 'OPEN_ACTIVITY',
-                visibility: 'public',
-                priority: 'high',
-                defaultSound: true,
-                defaultVibrateTimings: true
+                clickAction: 'OPEN_ACTIVITY'
             }
         },
         // ✅ CONFIGURACIÓN PARA iOS
@@ -192,15 +188,11 @@ for (const tokenRecord of tokens) {
                         body: cuerpo
                     },
                     sound: 'default',
-                    badge: 1,
-                    category: 'ORDEN_CATEGORY'
+                    badge: 1
                 }
-            },
-            headers: {
-                'apns-priority': '10'
             }
         },
-        // ✅ CONFIGURACIÓN PARA WEB
+        // ✅ CONFIGURACIÓN PARA WEB (aquí sí va vibrate)
         webpush: {
             headers: { 
                 Urgency: 'high'
@@ -211,24 +203,19 @@ for (const tokenRecord of tokens) {
                 icon: '/favicon.ico',
                 badge: '/favicon.ico',
                 vibrate: [200, 100, 200],
-                requireInteraction: true,
-                actions: [
-                    { action: 'ver', title: '👁️ Ver orden' },
-                    { action: 'cerrar', title: '✕ Cerrar' }
-                ]
+                requireInteraction: true
             }
         },
-        // ✅ DATOS ADICIONALES (para manejar clic)
+        // ✅ DATOS ADICIONALES
         data: {
             ordenId: orden.id.toString(),
             url: `/ordenes/${orden.id}`,
-            click_action: `/ordenes/${orden.id}`,
             title: titulo,
             body: cuerpo
         }
     };
     
-    console.log(`📨 Enviando push a token (Android/Web): ${tokenRecord.token.substring(0, 20)}...`);
+    console.log(`📨 Enviando push a token: ${tokenRecord.token.substring(0, 20)}...`);
     
     try {
         const response = await admin.messaging().send(message);
@@ -238,7 +225,7 @@ for (const tokenRecord of tokens) {
         // Si el token es inválido, desactivarlo
         if (sendError.code === 'messaging/registration-token-not-registered') {
             await tokenRecord.update({ activo: false });
-            console.log(`⚠️ Token inválido desactivado: ${tokenRecord.token.substring(0, 20)}...`);
+            console.log(`⚠️ Token inválido desactivado`);
         }
     }
 }
