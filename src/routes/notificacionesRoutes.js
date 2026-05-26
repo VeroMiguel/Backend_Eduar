@@ -147,47 +147,101 @@ router.post('/programar', autenticar, async (req, res) => {
                     }
                     
                     // Enviar notificación a cada token
-                  for (const tokenRecord of tokens) {
-                let titulo, cuerpo;
-                if (minutosAntes === 0) {
-                    titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
-                    cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
-                } else {
-                    titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
-                    cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
-                }
-                
-                const message = {
-                    token: tokenRecord.token,
-                    // ✅ NOTIFICATION: Solo title y body (sin icon)
-                    notification: { 
-                        title: titulo, 
-                        body: cuerpo 
-                    },
-                    // ✅ DATA: Se mantiene (para datos adicionales)
-                    data: { 
-                        ordenId: orden.id.toString(), 
-                        url: `/ordenes/${orden.id}` 
-                    },
-                    // ✅ WEBPUSH: Aquí va el icon y otras configuraciones web
-                    webpush: { 
-                        headers: { Urgency: 'high' }, 
-                        notification: { 
-                            icon: '/favicon.ico',
-                            badge: '/favicon.ico',
-                            vibrate: [200, 100, 200],
-                            requireInteraction: true,
-                            actions: [
-                                { action: 'ver', title: 'Ver orden' },
-                                { action: 'cerrar', title: 'Cerrar' }
-                            ]
-                        } 
-                    }
-                };
-                
-                await admin.messaging().send(message);
-                console.log(`📨 Notificación push enviada a token: ${tokenRecord.token.substring(0, 20)}...`);
+             // Enviar notificación a cada token
+for (const tokenRecord of tokens) {
+    let titulo, cuerpo;
+    if (minutosAntes === 0) {
+        titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
+        cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+    } else {
+        titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
+        cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+    }
+    
+    // ✅ FORMATO COMPLETO para Android, iOS y Web
+    const message = {
+        token: tokenRecord.token,
+        notification: {
+            title: titulo,
+            body: cuerpo
+        },
+        // ✅ CONFIGURACIÓN ESPECÍFICA PARA ANDROID
+        android: {
+            priority: 'high',
+            notification: {
+                title: titulo,
+                body: cuerpo,
+                icon: 'ic_notification',
+                color: '#6366f1',
+                sound: 'default',
+                vibrate: [200, 100, 200],
+                channelId: 'ordenes_channel',
+                clickAction: 'OPEN_ACTIVITY',
+                visibility: 'public',
+                priority: 'high',
+                defaultSound: true,
+                defaultVibrateTimings: true
             }
+        },
+        // ✅ CONFIGURACIÓN PARA iOS
+        apns: {
+            payload: {
+                aps: {
+                    alert: {
+                        title: titulo,
+                        body: cuerpo
+                    },
+                    sound: 'default',
+                    badge: 1,
+                    category: 'ORDEN_CATEGORY'
+                }
+            },
+            headers: {
+                'apns-priority': '10'
+            }
+        },
+        // ✅ CONFIGURACIÓN PARA WEB
+        webpush: {
+            headers: { 
+                Urgency: 'high'
+            },
+            notification: {
+                title: titulo,
+                body: cuerpo,
+                icon: '/favicon.ico',
+                badge: '/favicon.ico',
+                vibrate: [200, 100, 200],
+                requireInteraction: true,
+                actions: [
+                    { action: 'ver', title: '👁️ Ver orden' },
+                    { action: 'cerrar', title: '✕ Cerrar' }
+                ]
+            }
+        },
+        // ✅ DATOS ADICIONALES (para manejar clic)
+        data: {
+            ordenId: orden.id.toString(),
+            url: `/ordenes/${orden.id}`,
+            click_action: `/ordenes/${orden.id}`,
+            title: titulo,
+            body: cuerpo
+        }
+    };
+    
+    console.log(`📨 Enviando push a token (Android/Web): ${tokenRecord.token.substring(0, 20)}...`);
+    
+    try {
+        const response = await admin.messaging().send(message);
+        console.log(`✅ Notificación push enviada: ${response.messageId}`);
+    } catch (sendError) {
+        console.error(`❌ Error enviando push:`, sendError.message);
+        // Si el token es inválido, desactivarlo
+        if (sendError.code === 'messaging/registration-token-not-registered') {
+            await tokenRecord.update({ activo: false });
+            console.log(`⚠️ Token inválido desactivado: ${tokenRecord.token.substring(0, 20)}...`);
+        }
+    }
+}
                 } catch (error) {
                     console.error(`❌ Error enviando notificación push:`, error);
                 }
