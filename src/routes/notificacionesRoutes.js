@@ -4,12 +4,29 @@ const { autenticar } = require('../middleware/auth');
 const { Orden, Doctor, Servicio, TokenFCM } = require('../models');
 const admin = require('../config/firebase-admin');
 
-// Registrar token FCM
+// Registrar token FCM - MEJORADO
 router.post('/registrar-token', autenticar, async (req, res) => {
     try {
         const { token, dispositivo, plataforma } = req.body;
         
-        // Buscar o crear token en la tabla TokenFCM
+        if (!token) {
+            return res.status(400).json({ error: 'Token no proporcionado' });
+        }
+        
+        // ✅ Buscar token existente y desactivar el anterior si es diferente
+        const tokensExistentes = await TokenFCM.findAll({
+            where: { usuario_id: req.usuario.id, activo: true }
+        });
+        
+        // Desactivar tokens anteriores que sean diferentes al nuevo
+        for (const oldToken of tokensExistentes) {
+            if (oldToken.token !== token) {
+                await oldToken.update({ activo: false });
+                console.log(`⚠️ Token anterior desactivado: ${oldToken.token.substring(0, 20)}...`);
+            }
+        }
+        
+        // Buscar o crear el nuevo token
         let tokenRecord = await TokenFCM.findOne({ where: { token } });
         
         if (tokenRecord) {
@@ -31,7 +48,7 @@ router.post('/registrar-token', autenticar, async (req, res) => {
             });
         }
         
-        console.log(`✅ Token FCM registrado para usuario ${req.usuario.id}`);
+        console.log(`✅ Token FCM registrado/actualizado para usuario ${req.usuario.id}`);
         res.json({ success: true, message: 'Token registrado correctamente' });
     } catch (error) {
         console.error('Error registrando token:', error);
