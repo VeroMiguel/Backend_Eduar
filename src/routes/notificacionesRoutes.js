@@ -149,14 +149,27 @@ router.post('/programar', autenticar, async (req, res) => {
                     // Enviar notificación a cada token
              // Enviar notificación a cada token
 // Enviar notificación a cada token
+// Enviar notificación a cada token
 for (const tokenRecord of tokens) {
-    let titulo, cuerpo;
+    let titulo, cuerpo, tituloDetallado, cuerpoDetallado;
+    
+    // ✅ Crear contenido detallado para la notificación
+    const doctorNombre = orden.doctor?.nombre || 'Doctor';
+    const servicioNombre = orden.servicio?.nombre || 'Servicio';
+    const clienteNombre = orden.cliente_nombre || 'Sin cliente';
+    
     if (minutosAntes === 0) {
         titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
-        cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre} | ${orden.cliente_nombre || 'Sin cliente'}`;
+        cuerpo = `⏰ Vence AHORA: ${doctorNombre} — ${servicioNombre}`;
+        // Versión más detallada para la notificación
+        tituloDetallado = `📋 ORDEN VENCE AHORA`;
+        cuerpoDetallado = `${orden.id_externo}\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     } else {
         titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
-        cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre} | Cliente: ${orden.cliente_nombre || 'No especificado'}`;
+        cuerpo = `${doctorNombre} — ${servicioNombre} | Cliente: ${clienteNombre}`;
+        // Versión más detallada para la notificación
+        tituloDetallado = `⚠️ ORDEN POR VENCER`;
+        cuerpoDetallado = `${orden.id_externo}\n⏰ ${minutosAntes} minutos\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     }
     
     const message = {
@@ -168,8 +181,8 @@ for (const tokenRecord of tokens) {
         android: {
             priority: 'high',
             notification: {
-                title: titulo,
-                body: cuerpo,
+                title: tituloDetallado,
+                body: cuerpoDetallado,
                 icon: 'ic_notification',
                 color: '#6366f1',
                 sound: 'default',
@@ -204,12 +217,16 @@ for (const tokenRecord of tokens) {
             ordenId: orden.id.toString(),
             url: `/ordenes/${orden.id}`,
             click_action: `/ordenes/${orden.id}`,
-            title: titulo,
-            body: cuerpo
+            titulo_detallado: tituloDetallado,
+            cuerpo_detallado: cuerpoDetallado,
+            doctor: doctorNombre,
+            servicio: servicioNombre,
+            cliente: clienteNombre
         }
     };
     
     console.log(`📨 Enviando push: ${titulo}`);
+    console.log(`📨 Detalle: ${cuerpoDetallado}`);
     
     try {
         const response = await admin.messaging().send(message);
