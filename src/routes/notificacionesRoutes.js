@@ -130,26 +130,47 @@ router.post('/programar', autenticar, async (req, res) => {
                     }
                     
                     // Enviar notificación a cada token
-                    for (const tokenRecord of tokens) {
-                        let titulo, cuerpo;
-                        if (minutosAntes === 0) {
-                            titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
-                            cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
-                        } else {
-                            titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
-                            cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
-                        }
-                        
-                        const message = {
-                            token: tokenRecord.token,
-                            notification: { title: titulo, body: cuerpo, icon: '/favicon.ico' },
-                            data: { ordenId: orden.id.toString(), url: `/ordenes/${orden.id}` },
-                            webpush: { headers: { Urgency: 'high' }, notification: { vibrate: [200, 100, 200] } }
-                        };
-                        
-                        await admin.messaging().send(message);
-                        console.log(`📨 Notificación push enviada a token: ${tokenRecord.token.substring(0, 20)}...`);
+                  for (const tokenRecord of tokens) {
+                let titulo, cuerpo;
+                if (minutosAntes === 0) {
+                    titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
+                    cuerpo = `⏰ Vence AHORA: ${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+                } else {
+                    titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
+                    cuerpo = `${orden.doctor?.nombre} — ${orden.servicio?.nombre}`;
+                }
+                
+                const message = {
+                    token: tokenRecord.token,
+                    // ✅ NOTIFICATION: Solo title y body (sin icon)
+                    notification: { 
+                        title: titulo, 
+                        body: cuerpo 
+                    },
+                    // ✅ DATA: Se mantiene (para datos adicionales)
+                    data: { 
+                        ordenId: orden.id.toString(), 
+                        url: `/ordenes/${orden.id}` 
+                    },
+                    // ✅ WEBPUSH: Aquí va el icon y otras configuraciones web
+                    webpush: { 
+                        headers: { Urgency: 'high' }, 
+                        notification: { 
+                            icon: '/favicon.ico',
+                            badge: '/favicon.ico',
+                            vibrate: [200, 100, 200],
+                            requireInteraction: true,
+                            actions: [
+                                { action: 'ver', title: 'Ver orden' },
+                                { action: 'cerrar', title: 'Cerrar' }
+                            ]
+                        } 
                     }
+                };
+                
+                await admin.messaging().send(message);
+                console.log(`📨 Notificación push enviada a token: ${tokenRecord.token.substring(0, 20)}...`);
+            }
                 } catch (error) {
                     console.error(`❌ Error enviando notificación push:`, error);
                 }
