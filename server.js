@@ -33,20 +33,41 @@ async function initializeDatabase() {
 }
 
 // Iniciar servidor
+// Iniciar servidor
 async function startServer() {
     await initializeDatabase();  // ✅ Primero conectamos DB
     
-    // ✅ CRON JOB - Ahora sí, después de que la DB está conectada
+    // ✅ CRON JOB - Limpiar logs (existente)
     cron.schedule('0 2 * * *', async () => {
         try {
             console.log('🕑 Ejecutando limpieza de logs (2:00 AM hora Perú)...');
-            // Eliminar logs de más de 30 días
             const [result] = await sequelize.query(
                 `DELETE FROM logs_actividad WHERE creado_en < DATE_SUB(NOW(), INTERVAL 30 DAY)`
             );
             console.log(`🗑️ Logs limpiados: ${result.affectedRows} registros eliminados`);
         } catch (error) {
             console.error('❌ Error limpiando logs:', error.message);
+        }
+    });
+    
+    // ✅ NUEVO CRON JOB - Limpiar tokens FCM antiguos (cada domingo a las 3:00 AM)
+    cron.schedule('0 3 * * 0', async () => {
+        try {
+            console.log('🕑 Ejecutando limpieza de tokens FCM antiguos (Domingo 3:00 AM)...');
+            
+            const fechaLimite = new Date();
+            fechaLimite.setDate(fechaLimite.getDate() - 60); // Tokens con más de 60 días
+            
+            const [result] = await sequelize.query(
+                `DELETE FROM tokens_fcm 
+                 WHERE activo = 0 
+                 AND actualizado_en < :fechaLimite`,
+                { replacements: { fechaLimite: fechaLimite } }
+            );
+            
+            console.log(`🗑️ Tokens FCM antiguos eliminados: ${result.affectedRows} registros`);
+        } catch (error) {
+            console.error('❌ Error limpiando tokens FCM:', error.message);
         }
     });
     
