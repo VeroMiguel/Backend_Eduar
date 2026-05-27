@@ -146,9 +146,7 @@ router.post('/programar', autenticar, async (req, res) => {
                         return;
                     }
                     
-                    // Enviar notificación a cada token
-             // Enviar notificación a cada token
-// Enviar notificación a cada token
+    
 // Enviar notificación a cada token
 for (const tokenRecord of tokens) {
     let titulo, cuerpo, tituloDetallado, cuerpoDetallado;
@@ -159,14 +157,10 @@ for (const tokenRecord of tokens) {
     const clienteNombre = orden.cliente_nombre || 'Sin cliente';
     
     if (minutosAntes === 0) {
-        titulo = `📋 Orden ${orden.id_externo} — ¡Hora límite!`;
-        cuerpo = `⏰ Vence AHORA: ${doctorNombre} — ${servicioNombre}`;
         // Versión más detallada para la notificación
         tituloDetallado = `📋 ORDEN VENCE AHORA`;
         cuerpoDetallado = `${orden.id_externo}\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     } else {
-        titulo = `⚠️ Orden ${orden.id_externo} — Vence en ${minutosAntes} min`;
-        cuerpo = `${doctorNombre} — ${servicioNombre} | Cliente: ${clienteNombre}`;
         // Versión más detallada para la notificación
         tituloDetallado = `⚠️ ORDEN POR VENCER`;
         cuerpoDetallado = `${orden.id_externo}\n⏰ ${minutosAntes} minutos\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
