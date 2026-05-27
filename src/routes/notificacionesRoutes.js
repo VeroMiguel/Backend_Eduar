@@ -146,8 +146,6 @@ router.post('/programar', autenticar, async (req, res) => {
                         return;
                     }
                     
-    
-// Enviar notificación a cada token
 // Enviar notificación a cada token
 for (const tokenRecord of tokens) {
     let tituloDetallado, cuerpoDetallado;
@@ -165,11 +163,9 @@ for (const tokenRecord of tokens) {
         cuerpoDetallado = `${orden.id_externo}\n⏰ ${minutosAntes} minutos\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     }
     
+    // ✅ ENVÍO SIMPLE - SOLO ANDROID (para dispositivos móviles)
     const message = {
         token: tokenRecord.token,
-        // ✅ ELIMINAR notification estándar para evitar duplicados
-        // notification: { title: titulo, body: cuerpo },  // ← ELIMINAR ESTO
-        
         android: {
             priority: 'high',
             notification: {
@@ -182,46 +178,20 @@ for (const tokenRecord of tokens) {
                 clickAction: 'OPEN_ACTIVITY'
             }
         },
-        apns: {
-            payload: {
-                aps: {
-                    alert: {
-                        title: tituloDetallado,
-                        body: cuerpoDetallado
-                    },
-                    sound: 'default',
-                    badge: 1
-                }
-            }
-        },
-        webpush: {
-            headers: { Urgency: 'high' },
-            notification: {
-                title: tituloDetallado,
-                body: cuerpoDetallado,
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
-                vibrate: [200, 100, 200],
-                requireInteraction: true
-            }
-        },
         data: {
             ordenId: orden.id.toString(),
             url: `/ordenes/${orden.id}`,
             click_action: `/ordenes/${orden.id}`,
             titulo_detallado: tituloDetallado,
-            cuerpo_detallado: cuerpoDetallado,
-            doctor: doctorNombre,
-            servicio: servicioNombre,
-            cliente: clienteNombre
+            cuerpo_detallado: cuerpoDetallado
         }
     };
     
-    console.log(`📨 Enviando push: ${tituloDetallado}`);
+    console.log(`📨 Enviando push Android a token: ${tokenRecord.token.substring(0, 20)}...`);
     
     try {
         const response = await admin.messaging().send(message);
-        console.log(`✅ Notificación push enviada`);
+        console.log(`✅ Notificación push enviada: ${response.messageId || 'OK'}`);
     } catch (sendError) {
         console.error(`❌ Error enviando push:`, sendError.message);
         if (sendError.code === 'messaging/registration-token-not-registered') {
