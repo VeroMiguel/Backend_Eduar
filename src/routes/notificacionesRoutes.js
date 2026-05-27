@@ -148,8 +148,9 @@ router.post('/programar', autenticar, async (req, res) => {
                     
     
 // Enviar notificación a cada token
+// Enviar notificación a cada token
 for (const tokenRecord of tokens) {
-    let titulo, cuerpo, tituloDetallado, cuerpoDetallado;
+    let tituloDetallado, cuerpoDetallado;
     
     // ✅ Crear contenido detallado para la notificación
     const doctorNombre = orden.doctor?.nombre || 'Doctor';
@@ -157,21 +158,18 @@ for (const tokenRecord of tokens) {
     const clienteNombre = orden.cliente_nombre || 'Sin cliente';
     
     if (minutosAntes === 0) {
-        // Versión más detallada para la notificación
         tituloDetallado = `📋 ORDEN VENCE AHORA`;
         cuerpoDetallado = `${orden.id_externo}\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     } else {
-        // Versión más detallada para la notificación
         tituloDetallado = `⚠️ ORDEN POR VENCER`;
         cuerpoDetallado = `${orden.id_externo}\n⏰ ${minutosAntes} minutos\n👨‍⚕️ ${doctorNombre}\n🦷 ${servicioNombre}\n👤 ${clienteNombre}`;
     }
     
     const message = {
         token: tokenRecord.token,
-        notification: {
-            title: titulo,
-            body: cuerpo
-        },
+        // ✅ ELIMINAR notification estándar para evitar duplicados
+        // notification: { title: titulo, body: cuerpo },  // ← ELIMINAR ESTO
+        
         android: {
             priority: 'high',
             notification: {
@@ -188,8 +186,8 @@ for (const tokenRecord of tokens) {
             payload: {
                 aps: {
                     alert: {
-                        title: titulo,
-                        body: cuerpo
+                        title: tituloDetallado,
+                        body: cuerpoDetallado
                     },
                     sound: 'default',
                     badge: 1
@@ -199,8 +197,8 @@ for (const tokenRecord of tokens) {
         webpush: {
             headers: { Urgency: 'high' },
             notification: {
-                title: titulo,
-                body: cuerpo,
+                title: tituloDetallado,
+                body: cuerpoDetallado,
                 icon: '/favicon.ico',
                 badge: '/favicon.ico',
                 vibrate: [200, 100, 200],
@@ -219,8 +217,7 @@ for (const tokenRecord of tokens) {
         }
     };
     
-    console.log(`📨 Enviando push: ${titulo}`);
-    console.log(`📨 Detalle: ${cuerpoDetallado}`);
+    console.log(`📨 Enviando push: ${tituloDetallado}`);
     
     try {
         const response = await admin.messaging().send(message);
