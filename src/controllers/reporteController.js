@@ -299,87 +299,166 @@ async function getCompletadasMes() {
 
 
 // Exportar a Excel (generar CSV)
+// Exportar a Excel (con múltiples hojas para "todos")
 const exportarReporte = async (req, res) => {
     try {
         const { tipo } = req.params;
-        let data = [];
-        let filename = `reporte_${tipo}_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-        // Obtener datos según el tipo de reporte
-        switch(tipo) {
-            case 'ingresos':
-                data = await getReporteIngresosData(req.query);
-                break;
-            case 'doctores':
-                data = await getReporteDoctoresData();
-                break;
-            case 'servicios':
-                data = await getReporteServiciosData();
-                break;
-            case 'morosidad':
-                data = await getReporteMorosidadData();
-                break;
-            case 'productividad':
-                data = await getReporteProductividadData();
-                break;
-            case 'todos':
-                const todos = await getTodosReportesData();
-                data = [
-                    ...todos.ingresos.map(i => ({ ...i, reporte: 'ingresos' })),
-                    ...todos.doctores.map(d => ({ ...d, reporte: 'doctores' })),
-                    ...todos.servicios.map(s => ({ ...s, reporte: 'servicios' })),
-                    ...todos.morosidad.map(m => ({ ...m, reporte: 'morosidad' })),
-                    ...todos.productividad.map(p => ({ ...p, reporte: 'productividad' }))
-                ];
-                filename = `reportes_completos_${new Date().toISOString().split('T')[0]}.xlsx`;
-                break;
-            default:
-                return res.status(400).json({ error: 'Tipo de reporte no válido' });
-        }
-
-        // Crear libro de Excel
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Reporte');
+        
+        // Configurar estilos
+        const headerStyle = {
+            font: { bold: true, color: { argb: 'FFFFFFFF' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }
+        };
 
-        // Si hay datos, agregar headers y filas
-        if (data && data.length > 0) {
-            // Agregar headers
-            const headers = Object.keys(data[0]);
-            worksheet.addRow(headers);
-
-            // Estilo para headers
-            const headerRow = worksheet.getRow(1);
-            headerRow.font = { bold: true };
-            headerRow.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FF4F81BD' }
-            };
-            headerRow.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-
-            // Agregar datos
-            data.forEach(item => {
-                worksheet.addRow(Object.values(item));
-            });
-
-            // Autoajustar columnas
-            worksheet.columns.forEach(column => {
-                let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, (cell) => {
-                    const cellValue = cell.value ? cell.value.toString() : '';
-                    maxLength = Math.max(maxLength, cellValue.length);
+        if (tipo === 'todos') {
+            // Obtener todos los datos
+            const todos = await getTodosReportesData();
+            let filename = `reportes_completos_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            // 1. Hoja de Ingresos
+            if (todos.ingresos && todos.ingresos.length > 0) {
+                const wsIngresos = workbook.addWorksheet('Ingresos');
+                const headersIngresos = Object.keys(todos.ingresos[0]);
+                wsIngresos.addRow(headersIngresos);
+                wsIngresos.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
                 });
-                column.width = Math.min(maxLength + 2, 50);
-            });
+                todos.ingresos.forEach(item => {
+                    wsIngresos.addRow(Object.values(item));
+                });
+                wsIngresos.columns.forEach(col => {
+                    col.width = 15;
+                });
+            }
+            
+            // 2. Hoja de Doctores
+            if (todos.doctores && todos.doctores.length > 0) {
+                const wsDoctores = workbook.addWorksheet('Doctores');
+                const headersDoctores = Object.keys(todos.doctores[0]);
+                wsDoctores.addRow(headersDoctores);
+                wsDoctores.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
+                });
+                todos.doctores.forEach(item => {
+                    wsDoctores.addRow(Object.values(item));
+                });
+                wsDoctores.columns.forEach(col => {
+                    col.width = 20;
+                });
+            }
+            
+            // 3. Hoja de Servicios
+            if (todos.servicios && todos.servicios.length > 0) {
+                const wsServicios = workbook.addWorksheet('Servicios');
+                const headersServicios = Object.keys(todos.servicios[0]);
+                wsServicios.addRow(headersServicios);
+                wsServicios.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
+                });
+                todos.servicios.forEach(item => {
+                    wsServicios.addRow(Object.values(item));
+                });
+                wsServicios.columns.forEach(col => {
+                    col.width = 25;
+                });
+            }
+            
+            // 4. Hoja de Morosidad
+            if (todos.morosidad && todos.morosidad.length > 0) {
+                const wsMorosidad = workbook.addWorksheet('Morosidad');
+                const headersMorosidad = Object.keys(todos.morosidad[0]);
+                wsMorosidad.addRow(headersMorosidad);
+                wsMorosidad.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
+                });
+                todos.morosidad.forEach(item => {
+                    wsMorosidad.addRow(Object.values(item));
+                });
+                wsMorosidad.columns.forEach(col => {
+                    col.width = 18;
+                });
+            }
+            
+            // 5. Hoja de Productividad
+            if (todos.productividad && todos.productividad.length > 0) {
+                const wsProductividad = workbook.addWorksheet('Productividad');
+                const headersProductividad = Object.keys(todos.productividad[0]);
+                wsProductividad.addRow(headersProductividad);
+                wsProductividad.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
+                });
+                todos.productividad.forEach(item => {
+                    wsProductividad.addRow(Object.values(item));
+                });
+                wsProductividad.columns.forEach(col => {
+                    col.width = 20;
+                });
+            }
+            
+            // Generar buffer
+            const buffer = await workbook.xlsx.writeBuffer();
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(buffer);
+            
+        } else {
+            // Para reportes individuales (ingresos, doctores, etc.)
+            let data = [];
+            let filename = `reporte_${tipo}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+            switch(tipo) {
+                case 'ingresos':
+                    data = await getReporteIngresosData(req.query);
+                    break;
+                case 'doctores':
+                    data = await getReporteDoctoresData();
+                    break;
+                case 'servicios':
+                    data = await getReporteServiciosData();
+                    break;
+                case 'morosidad':
+                    data = await getReporteMorosidadData();
+                    break;
+                case 'productividad':
+                    data = await getReporteProductividadData();
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Tipo de reporte no válido' });
+            }
+
+            const worksheet = workbook.addWorksheet('Reporte');
+
+            if (data && data.length > 0) {
+                const headers = Object.keys(data[0]);
+                worksheet.addRow(headers);
+                worksheet.getRow(1).eachCell((cell) => {
+                    cell.font = headerStyle.font;
+                    cell.fill = headerStyle.fill;
+                });
+                data.forEach(item => {
+                    worksheet.addRow(Object.values(item));
+                });
+                worksheet.columns.forEach(column => {
+                    let maxLength = 0;
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const cellValue = cell.value ? cell.value.toString() : '';
+                        maxLength = Math.max(maxLength, cellValue.length);
+                    });
+                    column.width = Math.min(maxLength + 2, 50);
+                });
+            }
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(buffer);
         }
-
-        // Generar buffer
-        const buffer = await workbook.xlsx.writeBuffer();
-
-        // Enviar archivo
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(buffer);
 
     } catch (error) {
         logger.error('Error exportando reporte:', error);
@@ -551,9 +630,14 @@ async function getReporteProductividadData() {
     }));
 }
 async function getTodosReportesData() {
+    // Obtener fecha de hace 6 meses para ingresos
+    const fechaFin = new Date().toISOString().split('T')[0];
+    const fechaInicio = new Date();
+    fechaInicio.setMonth(fechaInicio.getMonth() - 6);
+    
     const ingresos = await getReporteIngresosData({ 
-        fechaInicio: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
-        fechaFin: new Date().toISOString().split('T')[0],
+        fechaInicio: fechaInicio.toISOString().split('T')[0],
+        fechaFin: fechaFin,
         grupo: 'mes'
     });
     
