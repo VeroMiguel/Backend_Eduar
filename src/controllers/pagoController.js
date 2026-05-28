@@ -6,27 +6,38 @@ const registrarPago = async (req, res) => {
     const transaction = await sequelize.transaction();
     
     try {
+        // ✅ LOG 1: Ver qué está llegando
+        console.log('📝 [DEBUG] Body recibido:', JSON.stringify(req.body, null, 2));
+        console.log('📝 [DEBUG] Usuario autenticado:', req.usuario?.id);
+        
         const { orden_id, monto, metodo_pago, referencia, observaciones } = req.body;
 
         // ✅ Validar que el usuario está autenticado
         if (!req.usuario || !req.usuario.id) {
+            console.log('❌ Usuario no autenticado');
             await transaction.rollback();
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
 
         // ✅ Validar datos requeridos
         if (!orden_id || !monto || !metodo_pago) {
+            console.log('❌ Datos faltantes:', { orden_id, monto, metodo_pago });
             await transaction.rollback();
             return res.status(400).json({ error: 'Faltan datos requeridos: orden_id, monto, metodo_pago' });
         }
+
+        console.log(`📝 Buscando orden ID: ${orden_id}`);
 
         // Obtener la orden
         const orden = await Orden.findByPk(orden_id, { transaction });
         
         if (!orden) {
+            console.log(`❌ Orden no encontrada: ${orden_id}`);
             await transaction.rollback();
             return res.status(404).json({ error: 'Orden no encontrada' });
         }
+
+        console.log(`✅ Orden encontrada: ${orden.id_externo}, Total: ${orden.total}`);
 
         // ✅ Validar que el monto no exceda el saldo pendiente
         const pagosExistentes = await Pago.findAll({
@@ -36,10 +47,14 @@ const registrarPago = async (req, res) => {
         });
         
         const totalPagadoActual = parseFloat(pagosExistentes[0]?.dataValues?.totalPagado || 0);
-        const nuevoTotalPagado = totalPagadoActual + parseFloat(monto);
+        const montoNumerico = parseFloat(monto);
+        const nuevoTotalPagado = totalPagadoActual + montoNumerico;
         const totalOrden = parseFloat(orden.total);
         
+        console.log(`💰 Total pagado actual: ${totalPagadoActual}, Nuevo monto: ${montoNumerico}, Nuevo total: ${nuevoTotalPagado}, Total orden: ${totalOrden}`);
+        
         if (nuevoTotalPagado > totalOrden) {
+            console.log(`❌ Monto excede saldo pendiente`);
             await transaction.rollback();
             return res.status(400).json({ 
                 error: 'El monto excede el saldo pendiente',
@@ -48,14 +63,18 @@ const registrarPago = async (req, res) => {
         }
 
         // Crear el pago
+        console.log(`📝 Creando pago para orden ${orden_id} con monto ${montoNumerico}`);
+        
         const pago = await Pago.create({
             orden_id,
-            monto: parseFloat(monto),
+            monto: montoNumerico,
             metodo_pago,
             referencia: referencia || null,
             observaciones: observaciones || null,
             usuario_registro_id: req.usuario.id
         }, { transaction });
+
+        console.log(`✅ Pago creado con ID: ${pago.id}`);
 
         // ✅ Determinar nuevo estado de la orden
         let nuevoEstado = 'pendiente';
@@ -65,27 +84,33 @@ const registrarPago = async (req, res) => {
 
         // Actualizar orden
         await orden.update({ estado: nuevoEstado }, { transaction });
+        console.log(`📝 Orden actualizada a estado: ${nuevoEstado}`);
 
-        // ✅ Registrar en log (usando Sequelize directamente)
-        await sequelize.query(
-            `INSERT INTO logs_actividad (usuario_id, accion, entidad_tipo, entidad_id, detalle, ip_direccion, creado_en) 
-             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            {
-                replacements: [
-                    req.usuario.id,
-                    'registrar_pago',
-                    'pago',
-                    pago.id,
-                    JSON.stringify({ orden_id, monto, metodo: metodo_pago }),
-                    req.ip || req.headers['x-forwarded-for'] || null
-                ],
-                transaction
-            }
-        );
+        // ✅ Registrar en log
+        try {
+            await sequelize.query(
+                `INSERT INTO logs_actividad (usuario_id, accion, entidad_tipo, entidad_id, detalle, ip_direccion, creado_en) 
+                 VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+                {
+                    replacements: [
+                        req.usuario.id,
+                        'registrar_pago',
+                        'pago',
+                        pago.id,
+                        JSON.stringify({ orden_id, monto: montoNumerico, metodo: metodo_pago }),
+                        req.ip || req.headers['x-forwarded-for'] || 'unknown'
+                    ],
+                    transaction
+                }
+            );
+            console.log(`✅ Log registrado`);
+        } catch (logError) {
+            console.error(`⚠️ Error registrando log (no crítico):`, logError.message);
+        }
 
         await transaction.commit();
 
-        logger.info(`Pago registrado - Orden: ${orden_id}, Monto: ${monto}, Nuevo estado: ${nuevoEstado}`);
+        console.log(`🎉 Pago registrado exitosamente - Orden: ${orden_id}, Monto: ${montoNumerico}`);
 
         res.status(201).json({
             mensaje: 'Pago registrado correctamente',
@@ -102,7 +127,11 @@ const registrarPago = async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
-        logger.error('Error registrando pago:', error);
+        console.error('❌ Error registrando pago - DETALLES:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         res.status(500).json({ error: 'Error al registrar pago', details: error.message });
     }
 };
