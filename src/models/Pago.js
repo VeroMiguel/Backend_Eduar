@@ -7,6 +7,10 @@ const Pago = sequelize.define('Pago', {
         primaryKey: true,
         autoIncrement: true
     },
+    orden_id: {           // ✅ ADD THIS
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     monto: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
@@ -23,9 +27,16 @@ const Pago = sequelize.define('Pago', {
     },
     observaciones: {
         type: DataTypes.TEXT
+    },
+    usuario_registro_id: {    // ✅ ADD THIS
+        type: DataTypes.INTEGER,
+        allowNull: true
     }
 }, {
-    tableName: 'pagos'
+    tableName: 'pagos',
+    timestamps: true,
+    createdAt: 'creado_en',
+    updatedAt: 'actualizado_en'
 });
 
 module.exports = Pago;
