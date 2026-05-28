@@ -7,9 +7,13 @@ const Pago = sequelize.define('Pago', {
         primaryKey: true,
         autoIncrement: true
     },
-    orden_id: {           // ✅ ADD THIS
+    orden_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
+        references: {
+            model: 'ordenes',
+            key: 'id'
+        }
     },
     monto: {
         type: DataTypes.DECIMAL(10, 2),
@@ -28,13 +32,18 @@ const Pago = sequelize.define('Pago', {
     observaciones: {
         type: DataTypes.TEXT
     },
-    usuario_registro_id: {    // ✅ ADD THIS
+    usuario_registro_id: {
         type: DataTypes.INTEGER,
-        allowNull: true
+        allowNull: true,
+        references: {
+            model: 'usuarios',
+            key: 'id'
+        }
     }
 }, {
     tableName: 'pagos',
     timestamps: true,
+    underscored: true,
     createdAt: 'creado_en',
     updatedAt: 'actualizado_en'
 });
