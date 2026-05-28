@@ -449,7 +449,7 @@ async function getReporteDoctoresData() {
             COALESCE(SUM(p.total_pagado), 0) as total_pagado,
             COALESCE(SUM(o.total) - COALESCE(SUM(p.total_pagado), 0), 0) as deuda_total
         FROM doctores d
-        LEFT JOIN ordenes o ON d.id = o.doctor_id AND o.activo = TRUE
+        LEFT JOIN ordenes o ON d.id = o.doctor_id  -- ✅ Eliminado "AND o.activo = TRUE"
         LEFT JOIN (
             SELECT orden_id, SUM(monto) as total_pagado
             FROM pagos
@@ -480,7 +480,7 @@ async function getReporteServiciosData() {
             COALESCE(SUM(o.total), 0) as total_facturado,
             COALESCE(AVG(o.total), 0) as precio_promedio
         FROM servicios s
-        LEFT JOIN ordenes o ON s.id = o.servicio_id AND o.activo = TRUE
+        LEFT JOIN ordenes o ON s.id = o.servicio_id  -- ✅ Eliminado "AND o.activo = TRUE"
         WHERE s.activo = TRUE
         GROUP BY s.nombre
         ORDER BY cantidad DESC
@@ -504,7 +504,7 @@ async function getReporteMorosidadData() {
             COALESCE(SUM(o.total - COALESCE(p.total_pagado, 0)), 0) as deuda,
             DATEDIFF(CURDATE(), MIN(o.fecha_limite)) as diasMora
         FROM doctores d
-        JOIN ordenes o ON d.id = o.doctor_id AND o.activo = TRUE
+        JOIN ordenes o ON d.id = o.doctor_id  -- ✅ Eliminado "AND o.activo = TRUE"
         LEFT JOIN (
             SELECT orden_id, SUM(monto) as total_pagado
             FROM pagos
@@ -537,7 +537,7 @@ async function getReporteProductividadData() {
                 NULLIF(COUNT(*), 0), 2
             ) as eficiencia
         FROM doctores d
-        LEFT JOIN ordenes o ON d.id = o.doctor_id AND o.activo = TRUE
+        LEFT JOIN ordenes o ON d.id = o.doctor_id  -- ✅ Eliminado "AND o.activo = TRUE"
         WHERE d.activo = TRUE
         GROUP BY d.nombre
         ORDER BY eficiencia DESC
@@ -550,7 +550,6 @@ async function getReporteProductividadData() {
         eficiencia: Number(r.eficiencia) || 0
     }));
 }
-
 async function getTodosReportesData() {
     const ingresos = await getReporteIngresosData({ 
         fechaInicio: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
