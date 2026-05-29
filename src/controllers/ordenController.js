@@ -403,6 +403,39 @@ const actualizarImagenReferencia = async (req, res) => {
     }
 };
 
+
+
+
+// ordenController.js - Agregar este nuevo método
+
+const obtenerFechaHoraServidor = (req, res) => {
+    const ahora = new Date();
+    
+    // Formatear para ISO con zona horaria Perú
+    const anio = ahora.getFullYear();
+    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+    const dia = String(ahora.getDate()).padStart(2, '0');
+    const horas = String(ahora.getHours()).padStart(2, '0');
+    const minutos = String(ahora.getMinutes()).padStart(2, '0');
+    const segundos = String(ahora.getSeconds()).padStart(2, '0');
+    
+    // Crear objeto Date para Perú (asumiendo que el servidor ya está en UTC-5)
+    const fechaPeru = new Date(ahora);
+    
+    res.json({
+        fecha: `${anio}-${mes}-${dia}`,
+        hora: `${horas}:${minutos}:${segundos}`,
+        fecha_hora: `${anio}-${mes}-${dia} ${horas}:${minutos}:${segundos}`,
+        fecha_hora_iso: `${anio}-${mes}-${dia}T${horas}:${minutos}:${segundos}`,
+        timestamp: fechaPeru.getTime(),
+        timezone: 'America/Lima',
+        // Para comparación directa con fechas límite
+        hoy: `${anio}-${mes}-${dia}`,
+        ahora_militar: `${horas}:${minutos}`
+    });
+};
+
+// Exportar el nuevo método
 module.exports = {
     obtenerOrdenes,
     obtenerOrdenPorId,
@@ -411,6 +444,7 @@ module.exports = {
     eliminarOrden,
     obtenerEstadisticas,
     obtenerIngresosMensuales,
-    obtenerFechaServidor,
+    obtenerFechaServidor,    // Mantener el original
+    obtenerFechaHoraServidor, // Nuevo método
     actualizarImagenReferencia
 };

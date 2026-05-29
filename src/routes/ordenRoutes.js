@@ -14,7 +14,8 @@ const {
     obtenerEstadisticas,
     obtenerIngresosMensuales,
     obtenerFechaServidor,
-    actualizarImagenReferencia  // <-- NUEVO
+    actualizarImagenReferencia,
+    obtenerFechaHoraServidor  // <-- NUEVO
 } = require('../controllers/ordenController');
 const { autenticar, autorizar } = require('../middleware/auth');
 const { validarOrden } = require('../middleware/validator');
@@ -51,6 +52,7 @@ const upload = multer({
 router.get('/estadisticas', autenticar, obtenerEstadisticas);
 router.get('/ingresos/mensuales', autenticar, obtenerIngresosMensuales);
 router.get('/server-time', autenticar, obtenerFechaServidor);
+router.get('/server-datetime', autenticar, obtenerFechaHoraServidor); // NUEVA RUTA - SOLO UNA VEZ
 
 // LUEGO las rutas con parámetros
 router.get('/', autenticar, obtenerOrdenes);
@@ -62,5 +64,4 @@ router.delete('/:id', autenticar, autorizar('admin'), eliminarOrden);
 
 // NUEVA RUTA: Subir imagen de referencia para una orden (con autenticación)
 router.post('/:id/imagen-referencia', autenticar, upload.single('imagen'), actualizarImagenReferencia);
-
 module.exports = router;
