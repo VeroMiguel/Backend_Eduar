@@ -65,8 +65,11 @@ const login = async (req, res) => {
             { expiresIn: config.jwtExpiresIn }
         );
 
-        logger.info(`Login exitoso - usuario: ${usuario.nombre_completo}`);
-
+    // logger.info(`Login exitoso - usuario: ${usuario.nombre_completo}`);
+ // ✅ O usar solo en debug:
+        if (process.env.DEBUG === 'true') {
+            logger.debug(`Login exitoso - usuario: ${usuario.nombre_completo}`);
+        }
         res.json({
             mensaje: 'Login exitoso',
             token,

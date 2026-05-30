@@ -5,7 +5,7 @@ const config = require('../config/config');
 const logDir = 'logs';
 
 const logger = winston.createLogger({
-    level: config.nodeEnv === 'development' ? 'debug' : 'info',
+    level: config.nodeEnv === 'production' ? 'warn' : 'warn', // ✅ Cambiar a 'warn' para menos logs
     format: winston.format.combine(
         winston.format.timestamp({
             format: 'YYYY-MM-DD HH:mm:ss'
@@ -26,12 +26,14 @@ const logger = winston.createLogger({
     ]
 });
 
+// En desarrollo, también reducir los logs de consola
 if (config.nodeEnv !== 'production') {
     logger.add(new winston.transports.Console({
         format: winston.format.combine(
             winston.format.colorize(),
             winston.format.simple()
-        )
+        ),
+        level: 'warn' // ✅ Solo warnings y errores
     }));
 }
 

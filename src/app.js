@@ -90,7 +90,12 @@ app.use('/api/', limiter);
 app.use(compression());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
-app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
+// Por:
+if (config.nodeEnv === 'development') {
+    app.use(morgan('dev')); // Logs más compactos para desarrollo
+} else {
+    app.use(morgan('tiny')); // Mínimo para producción
+}
 
 // Archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

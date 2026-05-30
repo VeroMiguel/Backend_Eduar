@@ -1,6 +1,7 @@
 const { Sequelize } = require('sequelize');
 const config = require('./config');
 
+// database.js - Cambiar logging
 const sequelize = new Sequelize(
     config.db.name,
     config.db.user,
@@ -9,9 +10,9 @@ const sequelize = new Sequelize(
         host: config.db.host,
         port: config.db.port,
         dialect: config.db.dialect,
-        logging: config.nodeEnv === 'development' ? console.log : false,
+        logging: false,  // ✅ Cambiar a false para desactivar logs SQL
         pool: config.db.pool,
-        timezone: '-05:00', // <-- AGREGAR ESTA LÍNEA para Perú (UTC-5)
+        timezone: '-05:00',
         define: {
             timestamps: true,
             underscored: true,
